@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"sync"
 
 	"github.com/masterzen/winrm/winrm"
 	"github.com/mitchellh/packer/common/uuid"
@@ -48,24 +49,44 @@ func doCopy(client *winrm.Client, config *Config, in io.Reader, toPath string) e
 
 func uploadContent(client *winrm.Client, maxChunks int, filePath string, reader io.Reader) error {
 	var err error
-	done := false
-	for !done {
-		done, err = uploadChunks(client, filePath, maxChunks, reader)
-		if err != nil {
-			return err
-		}
+	parallel := 4
+	var wg sync.WaitGroup
+
+	if maxChunks == 0 {
+		maxChunks = 1
 	}
 
-	return nil
+	// Create 4 Parallel workers
+	for p := 0; p < parallel; p++ {
+		done := make(chan bool, 1)
+		// Add worker to the WaitGroup
+		wg.Add(1)
+		var thread = p
+		go func() {
+			defer wg.Done()
+		Loop:
+			for {
+				select {
+				case <-done:
+					break Loop
+				default:
+					finished, err := uploadChunks(client, fmt.Sprintf("%v.%v", filePath, thread), maxChunks, reader, thread)
+					if err != nil {
+						break
+					}
+					if finished {
+						done <- true
+					}
+				}
+			}
+		}()
+	}
+	fmt.Println("Waiting for Threads")
+	wg.Wait()
+	fmt.Println("Done waiting for Threads")
+	return err
 }
-
-func uploadChunks(client *winrm.Client, filePath string, maxChunks int, reader io.Reader) (bool, error) {
-	shell, err := client.CreateShell()
-	if err != nil {
-		return false, errors.New(fmt.Sprintf("Couldn't create shell: %v", err))
-	}
-	defer shell.Close()
-
+func getChunk(reader io.Reader, filePath string) (string, bool, error) {
 	// Upload the file in chunks to get around the Windows command line size limit.
 	// Base64 encodes each set of three bytes into four bytes. In addition the output
 	// is padded to always be a multiple of four.
@@ -80,27 +101,48 @@ func uploadChunks(client *winrm.Client, filePath string, maxChunks int, reader i
 	chunkSize := ((8000 - len(filePath)) / 4) * 3
 	chunk := make([]byte, chunkSize)
 
-	if maxChunks == 0 {
-		maxChunks = 1
+	n, err := reader.Read(chunk)
+	if err != nil && err != io.EOF {
+		return "", false, err
+	}
+	if n == 0 {
+		return "", true, nil
 	}
 
-	for i := 0; i < maxChunks; i++ {
-		n, err := reader.Read(chunk)
+	content := base64.StdEncoding.EncodeToString(chunk[:n])
 
-		if err != nil && err != io.EOF {
+	return content, false, nil
+
+}
+
+func uploadChunks(client *winrm.Client, filePath string, maxChunks int, reader io.Reader, thread int) (bool, error) {
+	var done bool
+
+	shell, err := client.CreateShell()
+	if err != nil {
+		return false, errors.New(fmt.Sprintf("Couldn't create shell: %v", err))
+	}
+	defer shell.Close()
+
+	// Each shell can do X amount of chunks per session
+	for c := 0; c < maxChunks; c++ {
+		// Read a chunk
+		content, finished, err := getChunk(reader, filePath)
+		if err != nil {
 			return false, err
 		}
-		if n == 0 {
-			return true, nil
-		}
-
-		content := base64.StdEncoding.EncodeToString(chunk[:n])
-		if err = appendContent(shell, filePath, content); err != nil {
-			return false, err
+		if finished {
+			done = true
+		} else {
+			// Upload chunk
+			err = appendContent(shell, filePath, content)
+			if err != nil {
+				return false, err
+			}
 		}
 	}
 
-	return false, nil
+	return done, err
 }
 
 func restoreContent(client *winrm.Client, fromPath, toPath string) error {
