@@ -11,7 +11,7 @@ import (
 	"github.com/packer-community/winrmcp/winrmcp"
 )
 
-var usage string = `
+var usage = `
 Usage: winrmcp [options] [-help | <from> <to>]
 
   Copy a local file or directory to a remote directory.

@@ -8,6 +8,7 @@ import (
 type File struct {
 	position int
 	path     string
+	reader   io.Reader
 }
 
 func (f *File) Read() (string, int, error) {

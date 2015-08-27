@@ -1,41 +1,32 @@
 package winrmcp
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"github.com/masterzen/winrm/winrm"
 )
 
 type FileWalker struct {
-	client  *winrm.Client
-	config  *Config
-	toDir   string
 	fromDir string
 }
 
-func (fw *FileWalker) copyFile(fromPath string, fi os.FileInfo, err error) error {
-	if err != nil {
-		return err
-	}
-
+func (fw *FileWalker) getFiles(fromPath string, fi os.FileInfo, err error) (*File, error) {
 	if !shouldUploadFile(fi) {
-		return nil
+		return nil, nil
 	}
+	var file *File
 
-	hostPath, _ := filepath.Abs(fromPath)
-	fromDir, _ := filepath.Abs(fw.fromDir)
-	relPath, _ := filepath.Rel(fromDir, hostPath)
-	toPath := filepath.Join(fw.toDir, relPath)
+	file.path, _ = filepath.Abs(fromPath)
+	// fromDir, _ := filepath.Abs(fw.fromDir)
+	// relPath, _ := filepath.Rel(fromDir, hostPath)
 
-	f, err := os.Open(hostPath)
+	file.reader, err = os.Open(file.path)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Couldn't read file %s: %v", fromPath, err))
+		return nil, fmt.Errorf("Couldn't read file %s: %v", fromPath, err)
 	}
 
-	return doCopy(fw.client, fw.config, f, winPath(toPath))
+	//return doCopy(fw.client, fw.config, f, winPath(toPath))
+	return file, err
 }
 
 func shouldUploadFile(fi os.FileInfo) bool {

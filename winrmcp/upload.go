@@ -12,7 +12,6 @@ import (
 // Communicator represents the Upload work
 type Upload struct {
 	winrmcp  *Winrmcp
-	config   *Config
 	filePath string
 }
 
@@ -50,7 +49,7 @@ func (u *Upload) Start() error {
 	//
 	// return nil
 	var content string
-	err := uploadContent(u.winrmcp.client, u.config.MaxOperationsPerShell, u.config.MaxShell, u.filePath, content)
+	err := uploadContent(u.winrmcp.client, u.winrmcp.config.MaxOperationsPerShell, u.winrmcp.config.MaxShell, u.filePath, content)
 	return err
 }
 

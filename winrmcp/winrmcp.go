@@ -9,6 +9,7 @@ import (
 	"github.com/masterzen/winrm/winrm"
 )
 
+// Represents a WinRM communicator plus some settings for copying files
 type Winrmcp struct {
 	client *winrm.Client
 	config *Config
@@ -47,30 +48,33 @@ func NewWinrmcp(addr string, config *Config) (*Winrmcp, error) {
 	return &Winrmcp{client, config}, err
 }
 
-// func (fs *Winrmcp) Copy(fromPath, toPath string) error {
-// 	f, err := os.Open(fromPath)
-// 	if err != nil {
-// 		return errors.New(fmt.Sprintf("Couldn't read file %s: %v", fromPath, err))
-// 	}
+func (winrmcp *Winrmcp) Copy(fromPath, toPath string) error {
+	var err error
+	u := Upload(winrmcp, toPath)
+	// f, err := os.Open(fromPath)
+	// if err != nil {
+	// 	return errors.New(fmt.Sprintf("Couldn't read file %s: %v", fromPath, err))
+	// }
+	//
+	// defer f.Close()
+	// fi, err := f.Stat()
+	// if err != nil {
+	// 	return errors.New(fmt.Sprintf("Couldn't stat file %s: %v", fromPath, err))
+	// }
+	//
+	// if !fi.IsDir() {
+	// 	return fs.Write(toPath, f)
+	// } else {
+	// 	fw := &FileWalker{
+	// 		client:  fs.client,
+	// 		config:  fs.config,
+	// 		toDir:   toPath,
+	// 		fromDir: fromPath,
+	// 	}
+	// 	return filepath.Walk(fromPath, fw.copyFile)
+	return err
 
-// 	defer f.Close()
-// 	fi, err := f.Stat()
-// 	if err != nil {
-// 		return errors.New(fmt.Sprintf("Couldn't stat file %s: %v", fromPath, err))
-// 	}
-
-// 	if !fi.IsDir() {
-// 		return fs.Write(toPath, f)
-// 	} else {
-// 		fw := &FileWalker{
-// 			client:  fs.client,
-// 			config:  fs.config,
-// 			toDir:   toPath,
-// 			fromDir: fromPath,
-// 		}
-// 		return filepath.Walk(fromPath, fw.copyFile)
-// 	}
-// }
+}
 
 // func (fs *Winrmcp) Write(toPath string, src io.Reader) error {
 // 	return doCopy(fs.client, fs.config, src, winPath(toPath))
