@@ -11,8 +11,8 @@ import (
 
 // Communicator represents the Upload work
 type Upload struct {
-	winrmcp  *Winrmcp
-	filePath string
+	winrmcp *Winrmcp
+	file    File
 }
 
 func (u *Upload) Start() error {
